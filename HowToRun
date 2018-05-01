@@ -1,0 +1,23 @@
+contact me if necessary: paschnell@dundee.ac.uk
+
+This only worked successfully on the Titan1 GPU server in the QMB, as there were strange versioning problems, even when appropriate older dependencies were installed locally, so please do run it on the Titan1 when you try it.
+
+Step 1)
+Split training and test data manually by moving folders (NR_Diff_XX) in /TumourData
+
+Optional: Step 1.2)
+Adjust data augmentation parameters in the global variables of data.py
+Default is to do flipping, rotation +- 15%, but not flipping the rotations.
+
+Optional: Step 1.3)
+Adjust model and training parameters in unet.py
+Default is 20 epochs, batchsize 32, learning rate 1e-04.
+
+Step 2)
+run data.py to prepare the test data
+python data.py
+
+Step 3)
+Run unet.py to start the training. At the end it will go through the test set in /TumourData/test_nii/ and predict masks for them. Then these will be output to /results/ with images and .nii files containing the masks.
+python unet.py
+
