@@ -6,3 +6,5 @@ results/*
 npydata/*
 !npydata/info
 /__pycache__/*
+ExampleResults
+TumourData_example

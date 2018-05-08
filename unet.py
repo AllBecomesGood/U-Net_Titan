@@ -89,13 +89,12 @@ class myUnet(object):
         # upmid = merge([Convolution2D(512, 2, 2, border_mode='same')(UpSampling2D(size=(2, 2))(convdeep)), conv5], mode='concat', concat_axis=1)
         # convmid = Convolution2D(512, 3, 3, activation='relu', border_mode='same')(upmid)
         # convmid = Convolution2D(512, 3, 3, activation='relu', border_mode='same')(convmid)
-
-	print(" ======================= ")
-	print("conv5: " + str(conv5.get_shape()))
-	print("conv4: " + str(conv4.get_shape())) 
+        print(" ======================= ")
+        print("conv5: " + str(conv5.get_shape()))
+        print("conv4: " + str(conv4.get_shape())) 
         up6 = merge([Convolution2D(f*8, 2, 2, activation='relu', border_mode='same')(UpSampling2D(size=(2, 2))(conv5)), conv4], mode='concat', concat_axis=3)
         print("up6: " + str(up6.get_shape()))
-	conv6 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(up6)
+        conv6 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(up6)
         # conv6 = BatchNormalization(mode=2, axis=3)(conv6)
         conv6 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(conv6)
         # conv6 = BatchNormalization(mode=2, axis=3)(conv6)
@@ -125,6 +124,87 @@ class myUnet(object):
         model.compile(optimizer=Adam(lr=lr), loss=dice_coef_loss, metrics=[dice_coef])
         print("Model Specs: Lr: " + str(lr) + " Feature highest/lowest: " + str(f) + "/" + str(f*16) + " Loss: dice_coef_loss") 
         return model
+
+
+    ####
+    def get_wnet(self):
+        f = 32 # 32 default. 64 unet.
+        global _features_low, _features_deep
+        _features_low = f
+        _features_deep = f*16
+
+
+        #= Architecture setup =#
+        # => 256
+        ### Block 1 ###
+        inputs= Input((self.img_rows, self.img_cols, 1))
+        conv1 = Convolution2D(f, 3, 3, activation='relu', border_mode='same')(inputs)
+        conv1 = Convolution2D(f, 3, 3, activation='relu', border_mode='same')(conv1)
+        pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+        # -> 128
+
+        ### Block 2 ###
+        conv2 = Convolution2D(f*2, 3, 3, activation='relu', border_mode='same')(pool1)
+        conv2 = Convolution2D(f*2, 3, 3, activation='relu', border_mode='same')(conv2)
+        pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+        # -> 64
+
+        ### Block 3 ###
+        conv3 = Convolution2D(f*4, 3, 3, activation='relu', border_mode='same')(pool2)
+        conv3 = Convolution2D(f*4, 3, 3, activation='relu', border_mode='same')(conv3)
+        pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+        # -> 32
+
+        ### Block 4 ###
+        conv4 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(pool3)
+        conv4 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(conv4)
+        pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+        # -> 16
+
+        ### Block 5 Bottom ###
+        conv5 = Convolution2D(f*16, 3, 3, activation='relu', border_mode='same')(pool4)
+        conv5 = Convolution2D(f*16, 3, 3, activation='relu', border_mode='same')(conv5)
+
+
+        ### Block 6 ###
+        up6   = merge([Convolution2D(f*8, 2, 2, activation='relu', border_mode='same')(UpSampling2D(size=(2, 2))(conv5)), conv4], mode='concat', concat_axis=3)
+        conv6 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(up6)
+        conv6 = Convolution2D(f*8, 3, 3, activation='relu', border_mode='same')(conv6)
+        # -> 32
+
+        ### Block 7 ###
+        up7   = merge([Convolution2D(f*4, 2, 2, activation='relu', border_mode='same')(UpSampling2D(size=(2, 2))(conv6)), conv3], mode='concat', concat_axis=3)
+        conv7 = Convolution2D(f*4, 3, 3, activation='relu', border_mode='same')(up7)
+        conv7 = Convolution2D(f*4, 3, 3, activation='relu', border_mode='same')(conv7)
+        # -> 64
+
+        ### Block 8 ###
+        up8   = merge([Convolution2D(f*2, 2, 2, activation='relu', border_mode='same')(UpSampling2D(size=(2, 2))(conv7)), conv2], mode='concat', concat_axis=3)
+        conv8 = Convolution2D(f*2, 3, 3, activation='relu', border_mode='same')(up8)
+        conv8 = Convolution2D(f*2, 3, 3, activation='relu', border_mode='same')(conv8)
+        # -> 128
+
+        ### Block 9 ###
+        up9   = merge([Convolution2D(f, 2, 2, activation='relu', border_mode='same')(UpSampling2D(size=(2, 2))(conv8)), conv1], mode='concat', concat_axis=3)
+        conv9 = Convolution2D(f, 3, 3, activation='relu', border_mode='same')(up9)
+        conv9 = Convolution2D(f, 3, 3, activation='relu', border_mode='same')(conv9)
+        # -> 256
+
+        ### Block 10 ###
+        conv10 = Convolution2D(1, 1, 1, activation='sigmoid')(conv9)
+
+
+
+        #= Model setup =#
+        model = Model(input=inputs, output=conv10)
+        lr = _lr
+        model.compile(optimizer=Adam(lr=lr), loss=dice_coef_loss, metrics=[dice_coef])
+        print("Model Specs: Lr: " + str(lr) + " Feature highest/lowest: " + str(f) + "/" + str(f*16) + " Loss: dice_coef_loss") 
+        return model
+    ####
+
+
+	
 
 
 
@@ -160,16 +240,26 @@ class myUnet(object):
         load = _load
         if load == 0:
             model = self.get_unet()
-            print("Created Unet.")
+            print("Model: Unet.")
+        elif load == 1:
+            model = self.get_wnet()
+            print("Model: Wnet.")
         else:
             model = load_model('unet.hdf5', custom_objects={'dice_coef_loss': dice_coef_loss, 'dice_coef': dice_coef})
-            print("Loaded Unet.")
+            print("Loaded Model from file.")
         
         
         model_checkpoint = ModelCheckpoint('unet.hdf5', #'weights.{epoch:02d}-{val_loss:.2f}.hdf5', 
                                             monitor='loss', 
                                             verbose=1, 
                                             save_best_only=False)
+
+        early_stopper = EarlyStopping(monitor='val_loss',
+                                      min_delta=0,
+                                      patience=2,
+                                      verbose=1, 
+                                      mode='auto')
+
         epochs = _epochs
         batch = _batch_size
         print('Fitting model... InputTensorShape: ' + str(imgs_train.shape) + "Epochs: " + str(epochs) + "batchsize: " + str(batch))
@@ -186,7 +276,7 @@ class myUnet(object):
                 verbose=1, 
                 validation_split=0.1, 
                 shuffle=True,
-                callbacks=[model_checkpoint])#,
+                callbacks=[model_checkpoint, early_stopper])#,
                 #sample_weight = class_weights) # No idea how to make these work currently.
                 #, class_weight = {0:1, 1:100}
 
